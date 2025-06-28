@@ -83,6 +83,11 @@ def get_dataset_wrapper(
     dataset_kwargs: dict[str, Any] = {
         "process_count": cfg.dataset_processes,
         "keep_in_memory": cfg.dataset_keep_in_memory is True,
+        # Pass writer_batch_size if specified in config
+        "writer_batch_size": cfg.get("dataset_writer_batch_size", 5),
+        # Pass shuffle settings
+        "shuffle_merged_datasets": cfg.get("shuffle_merged_datasets", True),
+        "seed": cfg.get("seed", None),
     }
 
     LOG.info(

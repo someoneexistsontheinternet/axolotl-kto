@@ -219,6 +219,12 @@ class AxolotlInputConfig(
             "description": "Keep dataset in memory while preprocessing. Only needed if cached dataset is taking too much storage"
         },
     )
+    dataset_writer_batch_size: int | None = Field(
+        default=None,
+        json_schema_extra={
+            "description": "Batch size for writing tokenized data during preprocessing. Defaults to 5. Larger values can improve preprocessing speed but use more memory."
+        },
+    )
     dataloader_pin_memory: bool | None = None
     dataloader_num_workers: int | None = None
     dataloader_prefetch_factor: int | None = None

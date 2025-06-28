@@ -39,14 +39,20 @@ class TokenizedPromptDataset(Dataset):
         self.prompt_tokenizer = prompt_tokenizer
         self.process_count = process_count
         self.keep_in_memory = keep_in_memory
+        # Extract writer_batch_size from kwargs with default of 5
+        self.writer_batch_size = kwargs.pop('writer_batch_size', 5)
+        # Extract shuffle settings from kwargs
+        self.shuffle_merged_datasets = kwargs.pop('shuffle_merged_datasets', True)
+        self.seed = kwargs.pop('seed', None)
         super().__init__(
             self.process(dataset).data,
             **kwargs,
         )
 
-    def process(self, dataset):
+    def process(self, dataset: Dataset):    
         features = dataset.features.keys()
-        num_proc = min(64, self.process_count if self.process_count else os.cpu_count())
+        # Use process_count if provided, otherwise use cpu_count
+        num_proc = self.process_count if self.process_count is not None else os.cpu_count()
 
         # Disable multiprocessing if the tokenizer doesn't support it (e.g., mistral_common)
         if not getattr(self.prompt_tokenizer, "supports_multiprocessing", True):
@@ -54,11 +60,16 @@ class TokenizedPromptDataset(Dataset):
                 "Disabling multiprocessing for tokenizer as it doesn't support it (e.g., mistral_common)"
             )
             num_proc = 1
+        
+        # Shuffle dataset if shuffle_merged_datasets is True (default)
+        if self.shuffle_merged_datasets:
+            dataset = dataset.shuffle(seed=self.seed)
+            LOG.info("Shuffling dataset before tokenization")
 
         map_kwargs = {}
-        if self.prompt_tokenizer.supports_batched:
-            map_kwargs["batched"] = True
-            map_kwargs["batch_size"] = 1_000
+        # if self.prompt_tokenizer.supports_batched:
+        #     map_kwargs["batched"] = True
+        #     map_kwargs["batch_size"] = 1_000
 
         if (
             hasattr(self.prompt_tokenizer, "filter_rows")
@@ -73,6 +84,7 @@ class TokenizedPromptDataset(Dataset):
         return dataset.map(
             self.prompt_tokenizer.tokenize_prompt,
             num_proc=num_proc,
+            writer_batch_size=self.writer_batch_size,
             remove_columns=features,
             keep_in_memory=self.keep_in_memory,
             desc="Tokenizing Prompts",
